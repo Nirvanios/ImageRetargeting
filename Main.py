@@ -1,4 +1,6 @@
 import argparse
+import logging
+import os.path
 
 import cv2
 import numpy as np
@@ -22,6 +24,8 @@ def border_keypoints(img: np.ndarray, distance: int = 20):
 
 def main(args):
     #Load image
+    if not os.path.exists(args.src_img):
+        raise FileNotFoundError("File \"" + args.src_img + "\" not found.")
     src_img = cv2.imread(args.src_img)
     src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
 
@@ -72,11 +76,19 @@ parser.add_argument('-H',
 
 
 if __name__ == "__main__":
+    #setup logger
+    logger = logging.getLogger('simple logger')
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] - %(message)s')
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
 
     # Call main function
     try:
         main(parser.parse_args())
     except Exception as e:
-        #TODO Logger
-        print("Err in main")
+        logger.exception(e)
 
