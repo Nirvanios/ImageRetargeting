@@ -1,12 +1,15 @@
-from enum import Enum
+from enum import Flag, auto
 
 
-class PointType(Enum):
+class PointType(Flag):
     NONE = 0
-    CORNER = 1
-    BORDER = 2
-    SALIENCY = 3
-    OTHER = 4
+    CORNER = auto()
+    BORDER = auto()
+    SALIENCY = auto()
+    OTHER = auto()
+
+    def has_flag(self, flag: "PointType"):
+        return self & flag == flag
 
 
 class Point:

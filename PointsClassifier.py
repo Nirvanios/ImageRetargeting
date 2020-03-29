@@ -3,6 +3,7 @@ import numpy as np
 
 import Utils
 from SaliencyObject import SaliencyObject
+from Point import PointType
 
 
 class PointsClassifier:
@@ -40,8 +41,10 @@ class PointsClassifier:
                 if (point[0] == 0 and point[1] == 0) or (point[1] == 0 and point[0] == self.shape[1] - 1) or (
                         point[0] == self.shape[1] - 1 and point[1] == self.shape[0] - 1) or (
                         point[1] == self.shape[0] - 1 and point[0] == 0):
+                    point.type = PointType.CORNER
                     self.corner_points.append(point)
                 else:
+                    point.type = PointType.BORDER
                     self.border_points.append(point)
 
     def __find_saliency_objects(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray) -> None:
@@ -64,6 +67,8 @@ class PointsClassifier:
                                     lambda salinecy_object, test=triangle_vertices: salinecy_object.append_if_same(
                                         test))
                 if val is None:
+                    for point in triangle_vertices:
+                        point.type |= PointType.SALIENCY
                     self.saliency_objects.append(SaliencyObject(triangle_vertices))
 
         condition = True
@@ -98,4 +103,5 @@ class PointsClassifier:
                     break
             if flag:
                 continue
+            point.type |= PointType.OTHER
             self.other_points.append(point)
