@@ -21,7 +21,9 @@ class PointsClassifier:
         self.saliency_objects = []
         self.edge_points = []
         self.other_points = []
+        self.all_points = []
 
+        self.__save_all_points(points)
         self.__find_border_corner_points(points)
         self.__find_saliency_objects(points, simplices, saliency_map)
         self.__find_other_points(points)
@@ -47,11 +49,11 @@ class PointsClassifier:
                     point.type = PointType.BORDER
                     if point.x == 0:
                         point.type |= PointType.LEFT_B
-                    elif point.x == self.shape[1]:
+                    elif point.x == self.shape[1] - 1:
                         point.type |= PointType.RIGHT_B
                     elif point.y == 0:
                         point.type |= PointType.UP_B
-                    elif point.y == self.shape[0]:
+                    elif point.y == self.shape[0] - 1:
                         point.type |= PointType.BOTTOM_B
                     self.border_points.append(point)
 
@@ -113,3 +115,13 @@ class PointsClassifier:
                 continue
             point.type |= PointType.OTHER
             self.other_points.append(point)
+
+    def get_point_type_array(self) -> np.ndarray:
+        types = []
+        for point in self.all_points:
+            types.append(point.type)
+        return np.array(types)
+
+    def __save_all_points(self, points) -> None:
+        for point in points:
+            self.all_points.append(point)
