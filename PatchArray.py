@@ -39,16 +39,26 @@ class PatchArray:
         Filters points, only one remains in each patch, creates border points and fills empty patches with random point
         :return: None
         """
-        for c_index, column in enumerate(self.patch_array):
-            for r_index, patch in enumerate(column):
+        for r_index, row in enumerate(self.patch_array):
+            for c_index, patch in enumerate(row):
                 length = len(patch)
                 #if border patch then clear and add border pixel
-                if r_index == 0 or c_index == 0 or (r_index + 1) * self.step_size >= self.img_shape[1] or (
-                        c_index + 1) * self.step_size >= self.img_shape[0]:
-                    tmp = Point(min((r_index + 1 * r_index) * self.step_size, self.img_shape[1] - 1),
-                                min((c_index + 1 * c_index) * self.step_size, self.img_shape[0] - 1))
+                if r_index == 0 or c_index == 0 or (r_index + 1) * self.step_size >= self.img_shape[0] or (
+                        c_index + 1) * self.step_size >= self.img_shape[1]:
+                    tmp = Point(min((c_index) * self.step_size, self.img_shape[1] - 1),
+                                min((r_index) * self.step_size, self.img_shape[0] - 1))
                     patch.clear()
+
+
+                    if len(self.patch_array) == r_index + 1 and len(row) == c_index + 1:
+                        tmp = Point(self.img_shape[1] - 1, self.img_shape[0] - 1)
+                    elif len(row) == c_index + 1 and not c_index * self.step_size == self.img_shape[0] - 1:
+                        tmp = Point(self.img_shape[1] - 1, r_index * self.step_size)
+                    elif len(self.patch_array) == r_index + 1 and not r_index * self.step_size == self.img_shape[1] - 1:
+                        tmp = Point(c_index * self.step_size, self.img_shape[0] - 1)
                     patch.append(tmp)
+
+
                 #else if not empty, pick random and remove others
                 elif length > 0:
                     r = random.randrange(length)
@@ -57,11 +67,11 @@ class PatchArray:
                     patch.append(tmp)
                 #else create random
                 else:
-                    x = random.randrange(r_index * self.step_size,
-                                         min(r_index * self.step_size + self.step_size, self.img_shape[1]))
-                    y = random.randrange(c_index * self.step_size,
-                                         min(c_index * self.step_size + self.step_size, self.img_shape[0]))
-                    patch.append((x, y))
+                    x = random.randrange(c_index * self.step_size,
+                                         min(c_index * self.step_size + self.step_size, self.img_shape[1]))
+                    y = random.randrange(r_index * self.step_size,
+                                         min(r_index * self.step_size + self.step_size, self.img_shape[0]))
+                    patch.append(Point(x, y))
 
     def get_as_img(self) -> np.ndarray:
         """
@@ -84,5 +94,5 @@ class PatchArray:
         for row in self.patch_array:
             for patch in row:
                 if len(patch) > 0:
-                    points += patch
+                    points.extend(patch)
         return np.array(points)

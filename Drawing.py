@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
+from typing import Tuple
 
 
-def drawPoints(img: np.ndarray, points: np.ndarray):
+def drawPoints(img: np.ndarray, points: np.ndarray, color: Tuple = (0,255,255)):
     """
     Draws points into image
     :param img: Image to draw into
@@ -10,7 +11,7 @@ def drawPoints(img: np.ndarray, points: np.ndarray):
     :return: None
     """
     for point in points:
-        cv2.circle(img, tuple(point), 3, (0, 255, 255), -1)
+        cv2.circle(img, tuple(point), 3, color, -1)
 
 
 def drawMesh(img: np.ndarray, points: np.ndarray, simplices: np.ndarray):

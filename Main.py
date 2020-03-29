@@ -6,9 +6,11 @@ import cv2
 import numpy as np
 import scipy.spatial
 
-from PatchArray import PatchArray
 import Drawing
 import Saliency
+from PatchArray import PatchArray
+from PointsClassifier import PointsClassifier
+
 
 def border_keypoints(img: np.ndarray, distance: int = 20):
     shape = img.shape
@@ -23,32 +25,47 @@ def border_keypoints(img: np.ndarray, distance: int = 20):
 
 
 def main(args):
-    #Load image
+    # Load image
     if not os.path.exists(args.src_img):
         raise FileNotFoundError("File \"" + args.src_img + "\" not found.")
     src_img = cv2.imread(args.src_img)
     src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
 
-    #Do Canny edge detection
+    # Do Canny edge detection
     edges = cv2.Canny(src_img_gray, 100, 200)
 
-    #Filter and get points
+    # Filter and get points
     p = PatchArray(30, edges)
     p.filter_points()
     points = p.get_as_ndarray()
 
-    #Delaunay triangulation
+    # Delaunay triangulation
     tri = scipy.spatial.Delaunay(points)
     simplices = tri.simplices.copy()
 
-    #Draw mesh
-    Drawing.drawPoints(src_img, points)
-    Drawing.drawMesh(src_img, points, simplices)
+    # Draw mesh
+    mesh_img = src_img.copy()
+    Drawing.drawPoints(mesh_img, points)
+    Drawing.drawMesh(mesh_img, points, simplices)
 
-    #Get saliency map
+    # Get saliency map
     saliency_map = Saliency.get_saliency_map(src_img)
+    saliency_map = np.zeros_like(saliency_map)
+    cv2.circle(saliency_map, (100, 100), 75, (255), -1)
 
-    cv2.imshow("points", src_img)
+    points_debug = np.array([[1, 2], [5, 8], [8, 6], [9, 5]])
+    simplices_debug = np.array([[0, 1, 2], [1, 2, 3]])
+
+    classified_points = PointsClassifier(points, simplices, saliency_map)
+
+    saliency_map = np.zeros_like(src_img)
+    cv2.circle(saliency_map, (100, 100), 75, (255,255,255), -1)
+    Drawing.drawPoints(saliency_map, points)
+    Drawing.drawMesh(saliency_map, points, simplices)
+    Drawing.drawPoints(saliency_map, classified_points.saliency_objects[0].triangles, (255,0,0))
+
+    cv2.imshow("mesh", mesh_img)
+    cv2.imshow("saliency", saliency_map)
 
     cv2.waitKey()
 
@@ -73,10 +90,8 @@ parser.add_argument('-H',
                     required=True,
                     type=int)
 
-
-
 if __name__ == "__main__":
-    #setup logger
+    # setup logger
     logger = logging.getLogger('simple logger')
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] - %(message)s')
@@ -85,10 +100,8 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-
     # Call main function
     try:
         main(parser.parse_args())
     except Exception as e:
         logger.exception(e)
-
