@@ -20,3 +20,13 @@ def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_sha
                 sum_R += abs(point[0] - (target_shape[1] - 1))
     points = points.reshape(len(points) * 2)
     return sum_U + sum_B + sum_L + sum_R
+
+def saliency_constraint_fun() -> int:
+    return 0
+
+def structure_constraint_energy_fun() -> int:
+    return 0
+
+def length_constraint_energy_fun() -> int:
+    return 0
+
