@@ -10,6 +10,7 @@ import Drawing
 import Saliency
 from PatchArray import PatchArray
 from PointsClassifier import PointsClassifier
+import Constraints
 
 
 def border_keypoints(img: np.ndarray, distance: int = 20):
@@ -38,6 +39,7 @@ def main(args):
     p = PatchArray(30, edges)
     p.filter_points()
     points_tuples = p.get_as_ndarray()
+    points_list = np.array([list(n) for n in points_tuples])
     points = p.get_as_Points()
 
     # Delaunay triangulation
@@ -58,6 +60,11 @@ def main(args):
     simplices_debug = np.array([[0, 1, 2], [1, 2, 3]])
 
     classified_points = PointsClassifier(points, simplices, saliency_map)
+
+    points_list = points_list.reshape(len(points_list) * 2)
+    args_shape = (args.target_height, args.target_width)
+    ret = Constraints.boundary_constraint_fun(points_list, classified_points.get_point_type_array(), args_shape)
+    points_list = points_list.reshape((-1, 2))
 
     saliency_map = np.zeros_like(src_img)
     cv2.circle(saliency_map, (100, 100), 75, (255,255,255), -1)
