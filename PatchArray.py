@@ -1,10 +1,9 @@
 import random
 from collections import namedtuple
 from typing import List, Tuple
+from Point import Point
 
 import numpy as np
-
-Point = namedtuple("Point", "x y")
 
 
 class PatchArray:
@@ -86,6 +85,18 @@ class PatchArray:
         return img
 
     def get_as_ndarray(self) -> np.ndarray:
+        """
+        getter for array of points
+        :return: array of points
+        """
+        points = []
+        for row in self.patch_array:
+            for patch in row:
+                if len(patch) > 0:
+                    points.extend([tuple(n) for n in patch])
+        return np.array(points)
+
+    def get_as_Points(self) -> np.ndarray:
         """
         getter for array of points
         :return: array of points

@@ -25,6 +25,10 @@ class PointsClassifier:
         self.__find_saliency_objects(points, simplices, saliency_map)
         self.__find_other_points(points)
 
+        print(list(self.saliency_objects[0].triangles.intersection(self.border_points))[0])
+        print("aaa")
+
+
     def __find_border_corner_points(self, points: np.ndarray) -> None:
         """
         Finds border and corner points and fills appropriate member variable
@@ -36,9 +40,9 @@ class PointsClassifier:
                 if (point[0] == 0 and point[1] == 0) or (point[1] == 0 and point[0] == self.shape[1] - 1) or (
                         point[0] == self.shape[1] - 1 and point[1] == self.shape[0] - 1) or (
                         point[1] == self.shape[0] - 1 and point[0] == 0):
-                    self.corner_points.append(tuple(point))
+                    self.corner_points.append(point)
                 else:
-                    self.border_points.append(tuple(point))
+                    self.border_points.append(point)
 
     def __find_saliency_objects(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray) -> None:
         """
@@ -49,11 +53,11 @@ class PointsClassifier:
         :return: None
         """
         for triangle in simplices:
-            triangle_vertices = np.array([points[triangle[0]], points[triangle[1]], points[triangle[2]]],
+            triangle_vertices = np.array([tuple(points[triangle[0]]), tuple(points[triangle[1]]), tuple(points[triangle[2]])],
                                          dtype=np.int32)
             triangle_mask = np.zeros_like(saliency_map, dtype=np.uint8)
             cv2.fillPoly(triangle_mask, [triangle_vertices], (255))
-            triangle_vertices = [tuple(n.tolist()) for n in triangle_vertices]
+            triangle_vertices = [points[triangle[0]], points[triangle[1]], points[triangle[2]]]
             triangle_mask = cv2.bitwise_and(saliency_map, saliency_map, mask=triangle_mask)
             if np.sum(triangle_mask) > 0:
                 val = Utils.find_if(self.saliency_objects,
@@ -86,12 +90,12 @@ class PointsClassifier:
         """
         for point in points:
             flag = False
-            if (tuple(point) in self.corner_points) or (tuple(point) in self.border_points):
+            if (point in self.corner_points) or (point in self.border_points):
                 continue
             for saliency_object in self.saliency_objects:
-                flag = tuple(point) in saliency_object.triangles
+                flag = point in saliency_object.triangles
                 if flag:
                     break
             if flag:
                 continue
-            self.other_points.append(tuple(point))
+            self.other_points.append(point)

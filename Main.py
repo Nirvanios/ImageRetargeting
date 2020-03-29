@@ -37,10 +37,11 @@ def main(args):
     # Filter and get points
     p = PatchArray(30, edges)
     p.filter_points()
-    points = p.get_as_ndarray()
+    points_tuples = p.get_as_ndarray()
+    points = p.get_as_Points()
 
     # Delaunay triangulation
-    tri = scipy.spatial.Delaunay(points)
+    tri = scipy.spatial.Delaunay(points_tuples)
     simplices = tri.simplices.copy()
 
     # Draw mesh
