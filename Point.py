@@ -6,6 +6,10 @@ class PointType(Flag):
     CORNER = auto()
     BORDER = auto()
     SALIENCY = auto()
+    UP_B = auto()
+    BOTTOM_B = auto()
+    LEFT_B = auto()
+    RIGHT_B = auto()
     OTHER = auto()
 
     def has_flag(self, flag: "PointType"):

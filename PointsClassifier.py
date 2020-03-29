@@ -45,6 +45,14 @@ class PointsClassifier:
                     self.corner_points.append(point)
                 else:
                     point.type = PointType.BORDER
+                    if point.x == 0:
+                        point.type |= PointType.LEFT_B
+                    elif point.x == self.shape[1]:
+                        point.type |= PointType.RIGHT_B
+                    elif point.y == 0:
+                        point.type = PointType.UP_B
+                    elif point.y == self.shape[0]:
+                        point.type = PointType.BOTTOM_B
                     self.border_points.append(point)
 
     def __find_saliency_objects(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray) -> None:
