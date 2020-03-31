@@ -31,6 +31,7 @@ def main(args):
         raise FileNotFoundError("File \"" + args.src_img + "\" not found.")
     src_img = cv2.imread(args.src_img)
     src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
+    args_shape = (args.target_height, args.target_width)
 
     # Do Canny edge detection
     edges = cv2.Canny(src_img_gray, 100, 200)
@@ -59,11 +60,12 @@ def main(args):
     points_debug = np.array([[1, 2], [5, 8], [8, 6], [9, 5]])
     simplices_debug = np.array([[0, 1, 2], [1, 2, 3]])
 
-    classified_points = PointsClassifier(points, simplices, saliency_map)
+    classified_points = PointsClassifier(points, simplices, saliency_map, args_shape)
 
     points_list = points_list.reshape(len(points_list) * 2)
-    args_shape = (args.target_height, args.target_width)
+
     ret = Constraints.boundary_constraint_fun(points_list, classified_points.get_point_type_array(), args_shape)
+    ret = Constraints.saliency_constraint_fun(points_list, classified_points.all_points)
     points_list = points_list.reshape((-1, 2))
 
     saliency_map = np.zeros_like(src_img)

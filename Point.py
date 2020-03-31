@@ -1,6 +1,5 @@
 from enum import Flag, auto
 
-
 class PointType(Flag):
     NONE = 0
     CORNER = auto()
@@ -21,6 +20,7 @@ class Point:
         self.x = x
         self.y = y
         self.type = type
+        self.object_parameter = None
 
     def __iter__(self):
         yield self.x

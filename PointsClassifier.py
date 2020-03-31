@@ -1,14 +1,15 @@
 import cv2
 import numpy as np
+from typing import Tuple
 
 import Utils
-from SaliencyObject import SaliencyObject
+from SaliencyObject import SaliencyObject, ObjectParameter
 from Point import PointType
 
 
 class PointsClassifier:
 
-    def __init__(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray):
+    def __init__(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray, target_shape: Tuple):
         """
         Fills apropriate members
         :param points: Detected points in image
@@ -16,6 +17,7 @@ class PointsClassifier:
         :param saliency_map: Binary importance map
         """
         self.shape = saliency_map.shape
+        self.target_shape = target_shape
         self.corner_points = []
         self.border_points = []
         self.saliency_objects = []
@@ -96,6 +98,28 @@ class PointsClassifier:
                 for del_index in sorted(marked_for_del, reverse=True):
                     del self.saliency_objects[del_index]
                 index += 1
+
+        x_lines = []
+        y_lines = []
+        for saliency_object in self.saliency_objects:
+            ex = saliency_object.get_extremes()
+            x_lines.append(ex[0])
+            y_lines.append(ex[1])
+        x_length = Utils.lines_length(np.array(x_lines))
+        y_length = Utils.lines_length(np.array(y_lines))
+
+        x_scale = min((self.target_shape[1] - 1) / x_length, 1.0)
+        y_scale = min((self.target_shape[0] - 1) / y_length, 1.0)
+
+        scale = min(x_scale, y_scale)
+
+        for index, saliency_object in enumerate(self.saliency_objects):
+            sum = np.array([list(p) for p in saliency_object.triangles]).sum(axis=0)
+            center_point = sum / len(saliency_object.triangles)
+            for point in saliency_object.triangles:
+                pol = Utils.cart2pol(point.x, point.y, center_point)
+                point.object_parameter = ObjectParameter(index, pol[0], pol[1], scale)
+                print("")
 
     def __find_other_points(self, points: np.ndarray) -> None:
         """

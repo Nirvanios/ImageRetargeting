@@ -1,8 +1,12 @@
-import numpy as np
-from typing import List, Tuple
-from  Point import PointType
+from typing import Tuple
 
-def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_shape : Tuple) -> int:
+import numpy as np
+
+import Utils
+from Point import PointType
+
+
+def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_shape: Tuple) -> int:
     points = points.reshape((-1, 2))
     sum_U = 0
     sum_B = 0
@@ -21,12 +25,33 @@ def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_sha
     points = points.reshape(len(points) * 2)
     return sum_U + sum_B + sum_L + sum_R
 
-def saliency_constraint_fun() -> int:
-    return 0
+
+def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray) -> int:
+    points = points.reshape((-1, 2))
+    object_sums = np.zeros((1, 2))
+    point_counts = np.zeros(1)
+
+    for index, point in enumerate(points):
+        if point_attributes[index].type.has_flag(PointType.SALIENCY):
+            object_sums[point_attributes[index].object_parameter.id] += point
+            point_counts[point_attributes[index].object_parameter.id] += 1
+    object_centers = np.array([n / point_counts[i] for i, n in enumerate(object_sums)])
+
+    object_sums = np.zeros((1, 2))
+    for index, point in enumerate(points):
+        if point_attributes[index].type.has_flag(PointType.SALIENCY):
+            object_sums[point_attributes[index].object_parameter.id] += np.linalg.norm(
+                point - Utils.pol2cart(
+                    point_attributes[index].object_parameter.r * point_attributes[index].object_parameter.scale,
+                    point_attributes[index].object_parameter.theta, object_centers[point_attributes[index].object_parameter.id]))
+
+    points = points.reshape(len(points) * 2)
+    return object_sums.sum()
+
 
 def structure_constraint_energy_fun() -> int:
     return 0
 
+
 def length_constraint_energy_fun() -> int:
     return 0
-

@@ -1,5 +1,15 @@
 from typing import Tuple, List, Any
 
+import numpy as np
+
+
+class ObjectParameter:
+    def __init__(self, id: int, r: float, theta: float, scale: float):
+        self.id = id
+        self.r = r
+        self.theta = theta
+        self.scale = scale
+
 
 class SaliencyObject(object):
 
@@ -26,3 +36,8 @@ class SaliencyObject(object):
             self.triangles.update(saliency_object.triangles)
             return True
         return False
+
+    def get_extremes(self) -> Tuple[list, list]:
+        max = np.max(np.array([list(n) for n in self.triangles]), axis=0)
+        min = np.min(np.array([list(n) for n in self.triangles]), axis=0)
+        return [min[0], max[0]], [min[1], max[1]]
