@@ -10,4 +10,7 @@ def get_saliency_map(img: np.ndarray) -> np.ndarray:
     s = cv2.saliency.StaticSaliencyFineGrained_create()
     (result, saliency_map) = s.computeSaliency(img)
     saliency_map = (saliency_map * 255).astype("uint8")
-    return cv2.threshold(saliency_map, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    saliency_map = cv2.threshold(saliency_map, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    kernel = np.ones((7, 7), np.uint8)
+    saliency_map = cv2.morphologyEx(saliency_map, cv2.MORPH_OPEN, kernel)
+    return saliency_map
