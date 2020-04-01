@@ -1,7 +1,8 @@
 import math
-from typing import Iterable, Callable, Any, TypeVar, Type, Tuple
+from typing import Iterable, Callable, Any, TypeVar, Type, Tuple, Set
 
 import numpy as np
+import scipy.spatial
 
 T = TypeVar('T')
 
@@ -47,3 +48,12 @@ def lines_length(lines: np.ndarray) -> float:
     for line in tmp_lines:
         sum += abs(line[1] - line[0])
     return sum
+
+
+def get_edges(tri: scipy.spatial.Delaunay) -> Set[Tuple]:
+    edges = set()
+    indices, indptr = tri.vertex_neighbor_vertices
+    for k in range(indices.shape[0] - 1):
+        for j in indptr[indices[k]:indices[k + 1]]:
+            edges.add(tuple((k, j)) if k <= j else tuple((j, k)))
+    return edges
