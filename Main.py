@@ -11,6 +11,7 @@ import Saliency
 from PatchArray import PatchArray
 from PointsClassifier import PointsClassifier
 import Constraints
+import Utils
 
 
 def border_keypoints(img: np.ndarray, distance: int = 20):
@@ -31,21 +32,23 @@ def main(args):
         raise FileNotFoundError("File \"" + args.src_img + "\" not found.")
     src_img = cv2.imread(args.src_img)
     src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
+    src_shape = src_img_gray.shape
     args_shape = (args.target_height, args.target_width)
 
     # Do Canny edge detection
-    edges = cv2.Canny(src_img_gray, 100, 200)
+    canny_edges = cv2.Canny(src_img_gray, 100, 200)
 
     # Filter and get points
-    p = PatchArray(30, edges)
+    p = PatchArray(30, canny_edges)
     p.filter_points()
     points_tuples = p.get_as_ndarray()
     points_list = np.array([list(n) for n in points_tuples])
     points = p.get_as_Points()
 
     # Delaunay triangulation
-    tri = scipy.spatial.Delaunay(points_tuples)
-    simplices = tri.simplices.copy()
+    delaunay = scipy.spatial.Delaunay(points_tuples)
+    simplices = delaunay.simplices.copy()
+    mesh_edge_indices = Utils.get_edges(delaunay)
 
     # Draw mesh
     mesh_img = src_img.copy()
@@ -54,8 +57,9 @@ def main(args):
 
     # Get saliency map
     saliency_map = Saliency.get_saliency_map(src_img)
-    saliency_map = np.zeros_like(saliency_map)
-    cv2.circle(saliency_map, (100, 100), 75, (255), -1)
+
+    #saliency_map = np.zeros_like(saliency_map)
+    #cv2.circle(saliency_map, (100, 100), 75, (255), -1)
 
     points_debug = np.array([[1, 2], [5, 8], [8, 6], [9, 5]])
     simplices_debug = np.array([[0, 1, 2], [1, 2, 3]])
@@ -64,15 +68,18 @@ def main(args):
 
     points_list = points_list.reshape(len(points_list) * 2)
 
-    ret = Constraints.boundary_constraint_fun(points_list, classified_points.get_point_type_array(), args_shape)
-    ret = Constraints.saliency_constraint_fun(points_list, classified_points.all_points)
+    ret_b = Constraints.boundary_constraint_fun(points_list, classified_points.get_point_type_array(), args_shape)
+    ret_s = Constraints.saliency_constraint_fun(points_list, classified_points.all_points, len(classified_points.saliency_objects))
+    ret_l = Constraints.length_constraint_energy_fun(points_list, classified_points.all_points, mesh_edge_indices, classified_points.saliency_objects, src_shape, args_shape)
     points_list = points_list.reshape((-1, 2))
 
-    saliency_map = np.zeros_like(src_img)
-    cv2.circle(saliency_map, (100, 100), 75, (255,255,255), -1)
+    saliency_map = cv2.cvtColor(saliency_map,cv2.COLOR_GRAY2RGB)
+    #cv2.circle(saliency_map, (100, 100), 75, (255,255,255), -1)
     Drawing.drawPoints(saliency_map, points)
     Drawing.drawMesh(saliency_map, points, simplices)
-    Drawing.drawPoints(saliency_map, classified_points.saliency_objects[0].triangles, (255,0,0))
+    for obj in classified_points.saliency_objects:
+        Drawing.drawPoints(saliency_map, obj.triangles, (255,0,0))
+
 
     cv2.imshow("mesh", mesh_img)
     cv2.imshow("saliency", saliency_map)

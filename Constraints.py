@@ -6,7 +6,7 @@ import Utils
 from Point import PointType
 
 
-def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_shape: Tuple) -> int:
+def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_shape: Tuple) -> float:
     points = points.reshape((-1, 2))
     sum_U = 0
     sum_B = 0
@@ -26,7 +26,7 @@ def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_sha
     return sum_U + sum_B + sum_L + sum_R
 
 
-def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray, obj_count: int) -> int:
+def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray, obj_count: int) -> float:
     points = points.reshape((-1, 2))
     object_sums = np.zeros((obj_count, 2))
     point_counts = np.zeros(obj_count)
@@ -53,9 +53,35 @@ def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray, ob
     return object_sums.sum()
 
 
+def length_constraint_energy_fun(points: np.ndarray, point_attributes: np.ndarray, edges: np.ndarray,
+                                 saliency_objects: np.ndarray, src_shape: np.ndarray,
+                                 target_shape: np.ndarray) -> float:
+    points = points.reshape((-1, 2))
+    sum = 0
+    for edge in edges:
+        scale_factor = np.zeros(2)
+        sum_scales = np.zeros(2)
+        sum_lengths = np.zeros(2)
+        point1 = points[edge[0]]
+        point2 = points[edge[1]]
+        length = abs(point1 - point2)
+        norm = np.linalg.norm(point1 - point2)
+        for saliency_object in saliency_objects:
+            is_in_obj = Utils.is_edge_in_object(point1, point2, saliency_object)
+            if is_in_obj[0] or is_in_obj[1]:
+                extremes = np.array(saliency_object.get_extremes())
+                lengths = abs(np.subtract(extremes[:, 0], extremes[:, 1]))
+                sum_scales += saliency_object.scale * lengths * is_in_obj
+                sum_lengths += lengths * is_in_obj
+        scale_factor = (target_shape[::-1] - sum_scales) / (src_shape[::-1] - sum_lengths)
+        l_ij = np.sqrt(np.power((scale_factor * length), 2).sum())
+        l_ij2 = np.power(l_ij, 2)
+        sum += np.power(np.power(norm, 2) - l_ij2, 2) / l_ij2
+
+    points = points.reshape(len(points) * 2)
+    return sum
+
+
+
 def structure_constraint_energy_fun() -> int:
-    return 0
-
-
-def length_constraint_energy_fun() -> int:
     return 0
