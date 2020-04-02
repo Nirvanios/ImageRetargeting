@@ -36,7 +36,7 @@ def lines_length(lines: np.ndarray) -> float:
         line1 = tmp_lines[index1]
         for index2 in range(len(lines)):
             line2 = tmp_lines[index2]
-            if index2 <= index1:
+            if index2 == index1:
                 continue
             if line2[1] >= line1[0] and line2[1] <= line1[1] and line2[0] >= line1[0] and line2[0] <= line1[1]:
                 tmp_lines[index2][0] = tmp_lines[index2][1] = 0
