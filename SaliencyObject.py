@@ -18,6 +18,8 @@ class SaliencyObject(object):
         if not len(vertices) == 3:
             raise AssertionError("Expected 3 points for triangle, got {}.".format(len(vertices)))
         self.triangles.update(vertices)
+        self.scale = None
+        self.center_point = None
 
     def append_if_same(self, to_append: Any) -> bool:
         if type(to_append) is list and all(isinstance(item, tuple) for item in to_append):
