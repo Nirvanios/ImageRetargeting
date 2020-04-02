@@ -4,6 +4,8 @@ from typing import Iterable, Callable, Any, TypeVar, Type, Tuple, Set
 import numpy as np
 import scipy.spatial
 
+from SaliencyObject import SaliencyObject
+
 T = TypeVar('T')
 
 
@@ -23,7 +25,7 @@ def pol2cart(r: float, theta: float, center: Tuple[float, float] = (0., 0.)) -> 
 def cart2pol(x: float, y: float, center: Tuple[float, float] = (0., 0.)) -> Tuple[float, float]:
     r = math.sqrt(math.pow(x - center[0], 2) + math.pow(y - center[1], 2))
     theta = math.atan((y - center[1]) / (x - center[0]))
-    if (y - center[1]) < 0 and (x - center[0]) < 0 or (y - center[1]) > 0 > (x - center[0]):
+    if (y - center[1]) <= 0 and (x - center[0]) < 0 or (y - center[1]) >= 0 > (x - center[0]):
         theta += math.radians(180)
     elif (y - center[1]) < 0 < (x - center[0]):
         theta += math.radians(360)
@@ -50,10 +52,17 @@ def lines_length(lines: np.ndarray) -> float:
     return sum
 
 
-def get_edges(tri: scipy.spatial.Delaunay) -> Set[Tuple]:
+def get_edges(delaunay: scipy.spatial.Delaunay) -> np.ndarray:
     edges = set()
-    indices, indptr = tri.vertex_neighbor_vertices
+    indices, indptr = delaunay.vertex_neighbor_vertices
     for k in range(indices.shape[0] - 1):
         for j in indptr[indices[k]:indices[k + 1]]:
             edges.add(tuple((k, j)) if k <= j else tuple((j, k)))
-    return edges
+    return np.array([list(n) for n in edges])
+
+
+def is_edge_in_object(point1: np.ndarray, point2: np.ndarray, saliency_object: SaliencyObject) -> Tuple[bool, bool]:
+    extremes = saliency_object.get_extremes()
+    x = extremes[0][0] <= point1[0] <= extremes[0][1] or extremes[0][0] <= point2[0] <= extremes[0][1]
+    y = extremes[1][0] <= point1[1] <= extremes[1][1] or extremes[1][0] <= point2[1] <= extremes[1][1]
+    return x, y
