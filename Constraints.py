@@ -26,24 +26,28 @@ def boundary_constraint_fun(points: np.ndarray, type_map: np.ndarray, target_sha
     return sum_U + sum_B + sum_L + sum_R
 
 
-def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray) -> int:
+def saliency_constraint_fun(points: np.ndarray, point_attributes: np.ndarray, obj_count: int) -> int:
     points = points.reshape((-1, 2))
-    object_sums = np.zeros((1, 2))
-    point_counts = np.zeros(1)
+    object_sums = np.zeros((obj_count, 2))
+    point_counts = np.zeros(obj_count)
+    pp = [[] for _ in range(obj_count)]
 
     for index, point in enumerate(points):
         if point_attributes[index].type.has_flag(PointType.SALIENCY):
-            object_sums[point_attributes[index].object_parameter.id] += point
-            point_counts[point_attributes[index].object_parameter.id] += 1
+            for object_parameter in point_attributes[index].object_parameters:
+                object_sums[object_parameter.id] += point
+                point_counts[object_parameter.id] += 1
+                pp[object_parameter.id].append(point)
     object_centers = np.array([n / point_counts[i] for i, n in enumerate(object_sums)])
 
-    object_sums = np.zeros((1, 2))
+    object_sums = np.zeros(obj_count)
     for index, point in enumerate(points):
         if point_attributes[index].type.has_flag(PointType.SALIENCY):
-            object_sums[point_attributes[index].object_parameter.id] += np.linalg.norm(
-                point - Utils.pol2cart(
-                    point_attributes[index].object_parameter.r * point_attributes[index].object_parameter.scale,
-                    point_attributes[index].object_parameter.theta, object_centers[point_attributes[index].object_parameter.id]))
+            for object_parameter in point_attributes[index].object_parameters:
+                tmp_point = Utils.pol2cart(
+                    object_parameter.r * object_parameter.scale, object_parameter.theta,
+                    object_centers[object_parameter.id])
+                object_sums[object_parameter.id] += np.linalg.norm(point - tmp_point)
 
     points = points.reshape(len(points) * 2)
     return object_sums.sum()

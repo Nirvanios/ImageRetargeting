@@ -20,7 +20,7 @@ class Point:
         self.x = x
         self.y = y
         self.type = type
-        self.object_parameter = None
+        self.object_parameters = []
 
     def __iter__(self):
         yield self.x

@@ -30,10 +30,6 @@ class PointsClassifier:
         self.__find_saliency_objects(points, simplices, saliency_map)
         self.__find_other_points(points)
 
-        print(list(self.saliency_objects[0].triangles.intersection(self.border_points))[0])
-        print("aaa")
-
-
     def __find_border_corner_points(self, points: np.ndarray) -> None:
         """
         Finds border and corner points and fills appropriate member variable
@@ -113,13 +109,15 @@ class PointsClassifier:
 
         scale = min(x_scale, y_scale)
 
+        old_i = 0
+
         for index, saliency_object in enumerate(self.saliency_objects):
             sum = np.array([list(p) for p in saliency_object.triangles]).sum(axis=0)
             center_point = sum / len(saliency_object.triangles)
             for point in saliency_object.triangles:
                 pol = Utils.cart2pol(point.x, point.y, center_point)
-                point.object_parameter = ObjectParameter(index, pol[0], pol[1], scale)
-                print("")
+                point.object_parameters.append(ObjectParameter(index, pol[0], pol[1], scale, center_point))
+                old_i = index
 
     def __find_other_points(self, points: np.ndarray) -> None:
         """

@@ -4,12 +4,12 @@ import numpy as np
 
 
 class ObjectParameter:
-    def __init__(self, id: int, r: float, theta: float, scale: float):
+    def __init__(self, id: int, r: float, theta: float, scale: float, center: Tuple[float, float]):
         self.id = id
         self.r = r
         self.theta = theta
         self.scale = scale
-
+        self.center = center
 
 class SaliencyObject(object):
 
