@@ -9,7 +9,7 @@ from Point import PointType
 
 class PointsClassifier:
 
-    def __init__(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray, target_shape: Tuple):
+    def __init__(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray, target_shape: np.ndarray):
         """
         Fills apropriate members
         :param points: Detected points in image

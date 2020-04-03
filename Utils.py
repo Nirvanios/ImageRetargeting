@@ -59,10 +59,3 @@ def get_edges(delaunay: scipy.spatial.Delaunay) -> np.ndarray:
         for j in indptr[indices[k]:indices[k + 1]]:
             edges.add(tuple((k, j)) if k <= j else tuple((j, k)))
     return np.array([list(n) for n in edges])
-
-
-def is_edge_in_object(point1: np.ndarray, point2: np.ndarray, saliency_object: SaliencyObject) -> Tuple[bool, bool]:
-    extremes = saliency_object.get_extremes()
-    x = extremes[0][0] <= point1[0] <= extremes[0][1] or extremes[0][0] <= point2[0] <= extremes[0][1]
-    y = extremes[1][0] <= point1[1] <= extremes[1][1] or extremes[1][0] <= point2[1] <= extremes[1][1]
-    return x, y
