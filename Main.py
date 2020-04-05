@@ -4,14 +4,16 @@ import os.path
 
 import cv2
 import numpy as np
+import scipy.interpolate
+import scipy.optimize
 import scipy.spatial
 
+import Constraints
 import Drawing
 import Saliency
+import Utils
 from PatchArray import PatchArray
 from PointsClassifier import PointsClassifier
-import Constraints
-import Utils
 
 
 def border_keypoints(img: np.ndarray, distance: int = 20):
@@ -33,7 +35,7 @@ def main(args):
     src_img = cv2.imread(args.src_img)
     src_img_gray = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
     src_shape = src_img_gray.shape
-    args_shape = (args.target_height, args.target_width)
+    args_shape = np.array((args.target_height, args.target_width))
 
     # Do Canny edge detection
     canny_edges = cv2.Canny(src_img_gray, 100, 200)
@@ -58,33 +60,70 @@ def main(args):
     # Get saliency map
     saliency_map = Saliency.get_saliency_map(src_img)
 
-    #saliency_map = np.zeros_like(saliency_map)
-    #cv2.circle(saliency_map, (100, 100), 75, (255), -1)
+    # DEBUG
+    # saliency_map = np.zeros_like(saliency_map)
+    # cv2.circle(saliency_map, (300, 175), 125, (255), -1)
+    # a = src_img.copy()
+    # cv2.imshow("mask", cv2.bitwise_and(a, a, mask=saliency_map))
+    # # cv2.waitKey()
+    # saliency_map = np.zeros_like(saliency_map)
 
-    points_debug = np.array([[1, 2], [5, 8], [8, 6], [9, 5]])
-    simplices_debug = np.array([[0, 1, 2], [1, 2, 3]])
-
+    # Classify points
     classified_points = PointsClassifier(points, simplices, saliency_map, args_shape)
 
-    points_list = points_list.reshape(len(points_list) * 2)
+    # estimation is naive resize
+    estimation = points_list * ((args_shape / src_shape)[::-1])
+    estimation = estimation.reshape(len(estimation) * 2)
 
-    ret_b = Constraints.boundary_constraint_fun(points_list, classified_points.get_point_type_array(), args_shape)
-    ret_s = Constraints.saliency_constraint_fun(points_list, classified_points.all_points, len(classified_points.saliency_objects))
-    ret_l = Constraints.length_constraint_energy_fun(points_list, classified_points.all_points, mesh_edge_indices, classified_points.saliency_objects, src_shape, args_shape)
-    points_list = points_list.reshape((-1, 2))
+    # Fill attributes for minimization function
+    attributes = Constraints.ConstraintAttributes(classified_points.all_points, classified_points.get_scales(),
+                                                  src_shape, args_shape, len(classified_points.saliency_objects),
+                                                  classified_points.saliency_objects, mesh_edge_indices,
+                                                  classified_points.get_saliency_object_indices(),
+                                                  classified_points.get_saliency_object_relative_pos(),
+                                                  classified_points.get_border_point_indices())
 
-    saliency_map = cv2.cvtColor(saliency_map,cv2.COLOR_GRAY2RGB)
-    #cv2.circle(saliency_map, (100, 100), 75, (255,255,255), -1)
-    Drawing.drawPoints(saliency_map, points)
-    Drawing.drawMesh(saliency_map, points, simplices)
-    for obj in classified_points.saliency_objects:
-        Drawing.drawPoints(saliency_map, obj.triangles, (255,0,0))
+    # Create constraints functions
+    constraints = []
+    c1 = {'type': 'eq', 'fun': Constraints.boundary_constraint_fun, 'args': [[attributes]]}
+    c2 = {'type': 'eq', 'fun': Constraints.saliency_constraint_fun, 'args': [[attributes]]}
+    constraints.append(c1)
+    constraints.append(c2)
 
+    # Minimization options
+    options = {'disp': True, 'maxiter': 100}
+    res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=[attributes],
+                                  method='SLSQP', options=options, constraints=constraints)
 
-    cv2.imshow("mesh", mesh_img)
-    cv2.imshow("saliency", saliency_map)
+    # DEBUG
+    ret_b = Constraints.boundary_constraint_fun(res.x, [attributes])
+    ret_s = Constraints.saliency_constraint_fun(res.x, [attributes])
+    ret_l = Constraints.length_constraint_energy_fun(res.x, [attributes])
+    print("Boundary constraint: {}".format(ret_b))
+    print("Saliency constraint: {}".format(ret_s))
 
-    cv2.waitKey()
+    # Reshape points back
+    result_points = res.x.reshape((-1, 2))
+    estimation = estimation.reshape((-1, 2))
+
+    size = args_shape - 1
+    step = args_shape * 1j
+
+    # Map image from src points to copmuted points
+    grid_x, grid_y = np.mgrid[0:size[0]:step[0], 0:size[1]:step[1]]
+    grid_z = scipy.interpolate.griddata(result_points[:, ::-1], points_list[:, ::-1], (grid_x, grid_y), method='linear')
+    map_x = np.append([], [ar[:, 1] for ar in grid_z]).reshape(args_shape)
+    map_y = np.append([], [ar[:, 0] for ar in grid_z]).reshape(args_shape)
+    map_x_32 = map_x.astype('float32')
+    map_y_32 = map_y.astype('float32')
+    warped_image = cv2.remap(src_img, map_x_32, map_y_32, cv2.INTER_CUBIC)
+
+    # cv2.imshow("src", src_img)
+    # cv2.imshow("mapped", warped_image)
+    # # cv2.imshow("mesh", mesh_img)
+    # # cv2.imshow("saliency", saliency_map)
+    #
+    # cv2.waitKey()
 
 
 parser = argparse.ArgumentParser(description="Image Retargeting using mesh parametrization")

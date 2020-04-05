@@ -1,4 +1,5 @@
 from enum import Flag, auto
+import numpy as np
 
 class PointType(Flag):
     NONE = 0
@@ -16,11 +17,14 @@ class PointType(Flag):
 
 
 class Point:
-    def __init__(self, x: int = 0, y: int = 0, type: PointType = PointType.NONE):
+    def __init__(self, x: int = 0, y: int = 0, type: PointType = PointType.NONE, scale=None):
+        if scale is None:
+            scale = [1., 1.]
         self.x = x
         self.y = y
         self.type = type
         self.object_parameters = []
+        self.scale = np.array(scale)
 
     def __iter__(self):
         yield self.x

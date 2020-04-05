@@ -16,7 +16,7 @@ class PointsClassifier:
         :param simplices: Indices to mesh
         :param saliency_map: Binary importance map
         """
-        self.shape = saliency_map.shape
+        self.src_shape = saliency_map.shape
         self.target_shape = target_shape
         self.corner_points = []
         self.border_points = []
@@ -25,10 +25,13 @@ class PointsClassifier:
         self.other_points = []
         self.all_points = []
 
+        self.border_indices = [[] for _ in range(4)]
+
         self.__save_all_points(points)
         self.__find_border_corner_points(points)
         self.__find_saliency_objects(points, simplices, saliency_map)
         self.__find_other_points(points)
+        self.__compute_scales()
 
     def __find_border_corner_points(self, points: np.ndarray) -> None:
         """
@@ -36,24 +39,30 @@ class PointsClassifier:
         :param points: Input points
         :return: None
         """
-        for point in points:
-            if point[0] == 0 or point[1] == 0 or point[0] == (self.shape[1] - 1) or point[1] == (self.shape[0] - 1):
-                if (point[0] == 0 and point[1] == 0) or (point[1] == 0 and point[0] == self.shape[1] - 1) or (
-                        point[0] == self.shape[1] - 1 and point[1] == self.shape[0] - 1) or (
-                        point[1] == self.shape[0] - 1 and point[0] == 0):
+        for index, point in enumerate(points):
+            if point[0] == 0 or point[1] == 0 or point[0] == (self.src_shape[1] - 1) or point[1] == (self.src_shape[0] - 1):
+                if (point[0] == 0 and point[1] == 0) or (point[1] == 0 and point[0] == self.src_shape[1] - 1) or (
+                        point[0] == self.src_shape[1] - 1 and point[1] == self.src_shape[0] - 1) or (
+                        point[1] == self.src_shape[0] - 1 and point[0] == 0):
                     point.type = PointType.CORNER
                     self.corner_points.append(point)
                 else:
                     point.type = PointType.BORDER
-                    if point.x == 0:
-                        point.type |= PointType.LEFT_B
-                    elif point.x == self.shape[1] - 1:
-                        point.type |= PointType.RIGHT_B
-                    elif point.y == 0:
-                        point.type |= PointType.UP_B
-                    elif point.y == self.shape[0] - 1:
-                        point.type |= PointType.BOTTOM_B
                     self.border_points.append(point)
+
+                if point.x == 0:
+                    point.type |= PointType.LEFT_B
+                    self.border_indices[2].append(index)
+                elif point.x == self.src_shape[1] - 1:
+                    point.type |= PointType.RIGHT_B
+                    self.border_indices[3].append(index)
+                if point.y == 0:
+                    point.type |= PointType.UP_B
+                    self.border_indices[0].append(index)
+                elif point.y == self.src_shape[0] - 1:
+                    point.type |= PointType.BOTTOM_B
+                    self.border_indices[1].append(index)
+
 
     def __find_saliency_objects(self, points: np.ndarray, simplices: np.ndarray, saliency_map: np.ndarray) -> None:
         """
@@ -109,17 +118,15 @@ class PointsClassifier:
 
         scale = min(x_scale, y_scale)
 
-        old_i = 0
-
         for index, saliency_object in enumerate(self.saliency_objects):
             sum = np.array([list(p) for p in saliency_object.triangles]).sum(axis=0)
             center_point = sum / len(saliency_object.triangles)
             saliency_object.scale = scale
             saliency_object.center_point = center_point
             for point in saliency_object.triangles:
-                pol = Utils.cart2pol(point.x, point.y, center_point)
-                point.object_parameters.append(ObjectParameter(index, pol[0], pol[1], scale, center_point))
-                old_i = index
+                r, theta = Utils.cart2pol(point.x, point.y, center_point)
+                point.object_parameters.append(ObjectParameter(index, r, theta, scale, center_point))
+                saliency_object.point_relative_pos.append(Utils.pol2cart(r * saliency_object.scale, theta))
 
     def __find_other_points(self, points: np.ndarray) -> None:
         """
@@ -140,6 +147,20 @@ class PointsClassifier:
             point.type |= PointType.OTHER
             self.other_points.append(point)
 
+    def __compute_scales(self):
+        extremes = np.array([np.array(saliency_object.get_extremes()) for saliency_object in self.saliency_objects])
+        if extremes.size == 0:
+            extremes = np.array([[[-1, -1], [-1, -1]]])
+        extremes_lengths = abs(np.subtract(extremes[:, :, 0], extremes[:, :, 1]))
+        scales = np.array([[s.scale, s.scale] for s in self.saliency_objects])
+        if scales.size == 0:
+            scales = np.array([[1, 1]])
+        for point in self.all_points:
+            is_in = np.logical_and(extremes[:, :, 0] <= [point.x, point.y], [point.x, point.y] <= extremes[:, :, 1])
+            a = self.target_shape - np.sum(scales * extremes_lengths * is_in, axis=0)
+            b = self.src_shape - np.sum(extremes_lengths * is_in, axis=0)
+            point.scale = a / b
+
     def get_point_type_array(self) -> np.ndarray:
         types = []
         for point in self.all_points:
@@ -149,3 +170,20 @@ class PointsClassifier:
     def __save_all_points(self, points) -> None:
         for point in points:
             self.all_points.append(point)
+
+    def get_saliency_object_indices(self) -> np.ndarray:
+        all_points = np.array(self.all_points)
+        saliency_object_indices = [np.array([np.where(all_points == p)[0][0] for p in o.triangles]) for o in
+                                   self.saliency_objects]
+        n = np.array(saliency_object_indices)
+        return np.array(saliency_object_indices)
+
+    def get_saliency_object_relative_pos(self) -> np.ndarray:
+        return np.array([o.point_relative_pos for o in self.saliency_objects])
+
+    def get_scales(self) -> np.ndarray:
+        return np.array([o.scale for o in self.all_points])
+
+    def get_border_point_indices(self):
+        return [np.array(b) for b in self.border_indices]
+
