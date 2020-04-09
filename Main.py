@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os.path
+from typing import Tuple
 
 import cv2
 import numpy as np
@@ -83,22 +84,38 @@ def main(args):
                                                   classified_points.get_saliency_object_relative_pos(),
                                                   classified_points.get_border_point_indices())
 
+    epsilon_matrix = np.identity(estimation.size) * np.sqrt(np.finfo(float).eps)
+    def boundary_jacobian(points: np.ndarray, target_shape: np.ndarray, border_points_indices: np.ndarray, ):
+        j = Constraints.boundary_constraint_jac(points, target_shape, border_points_indices, epsilon_matrix)
+        j -= Constraints.boundary_constraint_fun(points, target_shape, border_points_indices)
+        return j / np.sqrt(np.finfo(float).eps)
+
+    def saliency_jacobian(points: np.ndarray, saliency_objects_indices: np.ndarray, saliency_objects_relative_pos: np.ndarray, obj_count: int):
+        j = Constraints.saliency_constraint_jac(points, saliency_objects_indices, saliency_objects_relative_pos, obj_count, epsilon_matrix)
+        j -= Constraints.saliency_constraint_fun(points, saliency_objects_indices, saliency_objects_relative_pos, obj_count)
+        return j / np.sqrt(np.finfo(float).eps)
+
+    def length_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray):
+        j = Constraints.length_constraint_energy_jac(points, edges, scales, epsilon_matrix)
+        j -= Constraints.length_constraint_energy_fun(points, edges, scales)
+        return j / np.sqrt(np.finfo(float).eps)
+
     # Create constraints functions
     constraints = []
-    c1 = {'type': 'eq', 'fun': Constraints.boundary_constraint_fun, 'args': [[attributes]]}
-    c2 = {'type': 'eq', 'fun': Constraints.saliency_constraint_fun, 'args': [[attributes]]}
+    c1 = {'type': 'eq', 'fun': Constraints.boundary_constraint_fun, 'args': (attributes.target_shape, attributes.border_points_indices), 'jac': boundary_jacobian}
+    c2 = {'type': 'eq', 'fun': Constraints.saliency_constraint_fun, 'args': (attributes.saliency_objects_indices, attributes.saliency_objects_relative_pos, attributes.obj_count), 'jac': saliency_jacobian}
     constraints.append(c1)
     constraints.append(c2)
 
     # Minimization options
-    options = {'disp': True, 'maxiter': 100}
-    res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=[attributes],
-                                  method='SLSQP', options=options, constraints=constraints)
+    options = {'disp': True, 'maxiter': 2000}
+    res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=(attributes.edges, attributes.point_scales),
+                                  method='SLSQP', options=options, constraints=constraints, jac=length_jacobian)
 
     # DEBUG
-    ret_b = Constraints.boundary_constraint_fun(res.x, [attributes])
-    ret_s = Constraints.saliency_constraint_fun(res.x, [attributes])
-    ret_l = Constraints.length_constraint_energy_fun(res.x, [attributes])
+    ret_b = Constraints.boundary_constraint_fun(res.x, attributes.target_shape, attributes.border_points_indices)
+    ret_s = Constraints.saliency_constraint_fun(res.x, attributes.saliency_objects_indices, attributes.saliency_objects_relative_pos, attributes.obj_count)
+    ret_l = Constraints.length_constraint_energy_fun(res.x, attributes.edges, attributes.point_scales)
     print("Boundary constraint: {}".format(ret_b))
     print("Saliency constraint: {}".format(ret_s))
 
@@ -118,12 +135,12 @@ def main(args):
     map_y_32 = map_y.astype('float32')
     warped_image = cv2.remap(src_img, map_x_32, map_y_32, cv2.INTER_CUBIC)
 
-    # cv2.imshow("src", src_img)
-    # cv2.imshow("mapped", warped_image)
-    # # cv2.imshow("mesh", mesh_img)
-    # # cv2.imshow("saliency", saliency_map)
+    cv2.imshow("src", src_img)
+    cv2.imshow("mapped", warped_image)
+    # # # cv2.imshow("mesh", mesh_img)
+    # # # cv2.imshow("saliency", saliency_map)
     #
-    # cv2.waitKey()
+    cv2.waitKey()
 
 
 parser = argparse.ArgumentParser(description="Image Retargeting using mesh parametrization")

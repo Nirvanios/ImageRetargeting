@@ -173,13 +173,13 @@ class PointsClassifier:
 
     def get_saliency_object_indices(self) -> np.ndarray:
         all_points = np.array(self.all_points)
-        saliency_object_indices = [np.array([np.where(all_points == p)[0][0] for p in o.triangles]) for o in
+        saliency_object_indices = [[np.where(all_points == p)[0][0] for p in o.triangles] for o in
                                    self.saliency_objects]
         n = np.array(saliency_object_indices)
-        return np.array(saliency_object_indices)
+        return saliency_object_indices
 
     def get_saliency_object_relative_pos(self) -> np.ndarray:
-        return np.array([o.point_relative_pos for o in self.saliency_objects])
+        return [o.point_relative_pos for o in self.saliency_objects]
 
     def get_scales(self) -> np.ndarray:
         return np.array([o.scale for o in self.all_points])

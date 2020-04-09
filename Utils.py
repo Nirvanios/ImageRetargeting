@@ -23,8 +23,9 @@ def pol2cart(r: float, theta: float, center: Tuple[float, float] = (0., 0.)) -> 
 
 
 def cart2pol(x: float, y: float, center: Tuple[float, float] = (0., 0.)) -> Tuple[float, float]:
+    eps = np.finfo(float).eps if x - center[0] == 0 else 0
     r = math.sqrt(math.pow(x - center[0], 2) + math.pow(y - center[1], 2))
-    theta = math.atan((y - center[1]) / (x - center[0]))
+    theta = math.atan((y - center[1]) / (x - center[0] + eps))
     if (y - center[1]) <= 0 and (x - center[0]) < 0 or (y - center[1]) >= 0 > (x - center[0]):
         theta += math.radians(180)
     elif (y - center[1]) < 0 < (x - center[0]):
