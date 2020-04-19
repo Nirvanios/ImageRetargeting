@@ -11,23 +11,10 @@ import scipy.spatial
 
 import Constraints
 import Drawing
-import Saliency
+from Saliency import Saliency
 import Utils
 from PatchArray import PatchArray
 from PointsClassifier import PointsClassifier
-
-
-def border_keypoints(img: np.ndarray, distance: int = 20):
-    shape = img.shape
-    img[0, 0] = img[shape[0] - 1, 0] = img[0, shape[1] - 1] = img[shape[0] - 1, shape[1] - 1] = 255
-    for x in range(0, shape[1], distance):
-        img[0, x] = 255
-        img[shape[0] - 1, x] = 255
-
-    for y in range(0, shape[0], distance):
-        img[y, 0] = 255
-        img[y, shape[1] - 1] = 255
-
 
 def main(args):
     # Load image
@@ -52,6 +39,8 @@ def main(args):
     delaunay = scipy.spatial.Delaunay(points_tuples)
     simplices = delaunay.simplices.copy()
     mesh_edge_indices = Utils.get_edges(delaunay)
+    mesh_edge_neighbour_indices = Utils.get_edge_neighbours(delaunay, mesh_edge_indices, points_list)
+    original_orientations = Utils.compute_orientations(points_list, mesh_edge_neighbour_indices).reshape((-1, 2))
 
     # Draw mesh
     mesh_img = src_img.copy()
@@ -59,18 +48,24 @@ def main(args):
     Drawing.drawMesh(mesh_img, points, simplices)
 
     # Get saliency map
-    saliency_map = Saliency.get_saliency_map(src_img)
+    saliency_map = Saliency(src_img, False).get_saliency_map()
 
     # DEBUG
-    # saliency_map = np.zeros_like(saliency_map)
-    # cv2.circle(saliency_map, (300, 175), 125, (255), -1)
+    # # saliency_map = np.zeros_like(saliency_map)
+    # # cv2.circle(saliency_map, (300, 175), 125, (255), -1)
     # a = src_img.copy()
     # cv2.imshow("mask", cv2.bitwise_and(a, a, mask=saliency_map))
     # # cv2.waitKey()
-    # saliency_map = np.zeros_like(saliency_map)
+    # # saliency_map = np.zeros_like(saliency_map)
 
     # Classify points
     classified_points = PointsClassifier(points, simplices, saliency_map, args_shape)
+
+    # for obj in classified_points.saliency_objects:
+    #     Drawing.drawPoints(mesh_img, obj.triangles, (255, 0, 0))
+    #
+    # cv2.imshow("mesh", saliency_map)
+    # cv2.waitKey()
 
     # estimation is naive resize
     estimation = points_list * ((args_shape / src_shape)[::-1])
@@ -95,9 +90,9 @@ def main(args):
         j -= Constraints.saliency_constraint_fun(points, saliency_objects_indices, saliency_objects_relative_pos, obj_count)
         return j / np.sqrt(np.finfo(float).eps)
 
-    def length_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray):
-        j = Constraints.length_constraint_energy_jac(points, edges, scales, epsilon_matrix)
-        j -= Constraints.length_constraint_energy_fun(points, edges, scales)
+    def length_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray, original_orientations: np.ndarray, mesh_edge_neighbour_indices: np.ndarray):
+        j = Constraints.length_constraint_energy_jac(points, edges, scales, original_orientations, mesh_edge_neighbour_indices, epsilon_matrix)
+        j -= Constraints.length_constraint_energy_fun(points, edges, scales, original_orientations, mesh_edge_neighbour_indices)
         return j / np.sqrt(np.finfo(float).eps)
 
     # Create constraints functions
@@ -108,14 +103,14 @@ def main(args):
     constraints.append(c2)
 
     # Minimization options
-    options = {'disp': True, 'maxiter': 2000}
-    res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=(attributes.edges, attributes.point_scales),
+    options = {'disp': True, 'maxiter': 1000}
+    res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=(attributes.edges, attributes.point_scales, original_orientations, mesh_edge_neighbour_indices),
                                   method='SLSQP', options=options, constraints=constraints, jac=length_jacobian)
 
     # DEBUG
     ret_b = Constraints.boundary_constraint_fun(res.x, attributes.target_shape, attributes.border_points_indices)
     ret_s = Constraints.saliency_constraint_fun(res.x, attributes.saliency_objects_indices, attributes.saliency_objects_relative_pos, attributes.obj_count)
-    ret_l = Constraints.length_constraint_energy_fun(res.x, attributes.edges, attributes.point_scales)
+    ret_l = Constraints.length_constraint_energy_fun(res.x, attributes.edges, attributes.point_scales, original_orientations, mesh_edge_neighbour_indices)
     print("Boundary constraint: {}".format(ret_b))
     print("Saliency constraint: {}".format(ret_s))
 
@@ -135,9 +130,11 @@ def main(args):
     map_y_32 = map_y.astype('float32')
     warped_image = cv2.remap(src_img, map_x_32, map_y_32, cv2.INTER_CUBIC)
 
+
+
     cv2.imshow("src", src_img)
     cv2.imshow("mapped", warped_image)
-    # # # cv2.imshow("mesh", mesh_img)
+    cv2.imshow("mesh", mesh_img)
     # # # cv2.imshow("saliency", saliency_map)
     #
     cv2.waitKey()
