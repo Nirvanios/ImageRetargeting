@@ -1,9 +1,10 @@
 import random
-from collections import namedtuple
 from typing import List, Tuple
-from Point import Point
 
 import numpy as np
+
+from Line import Line
+from Point import Point
 
 
 class PatchArray:
@@ -11,23 +12,25 @@ class PatchArray:
     step_size: int
     img_shape: Tuple
 
-    def __init__(self, step: int, image: np.ndarray):
+    def __init__(self, step: int, image: np.ndarray, lines: List[Line]):
         """
         Constructs patches with points
         :param step: Step size between patches
         :param image: Source image
         """
-        #init class atributtes
+        # init class atributtes
         random.seed()
         self.step_size = step
         self.img_shape = image.shape
+        self.lines = lines
+        self.line_points_indices = []
         x_size = self.img_shape[1] // step
         x_size += 0 if self.img_shape[1] % step == 0 else 1
         y_size = self.img_shape[0] // step
         y_size += 0 if self.img_shape[0] % step == 0 else 1
         self.patch_array = [[[] for _ in range(x_size)] for _ in range(y_size)]
 
-        #Fill patch array
+        # Fill patch array
         for x in range(self.img_shape[1]):
             for y in range(self.img_shape[0]):
                 if image[y, x] == 255:
@@ -40,14 +43,15 @@ class PatchArray:
         """
         for r_index, row in enumerate(self.patch_array):
             for c_index, patch in enumerate(row):
+                cleared = False
                 length = len(patch)
-                #if border patch then clear and add border pixel
+                # if border patch then clear and add border pixel
                 if r_index == 0 or c_index == 0 or (r_index + 1) * self.step_size >= self.img_shape[0] or (
                         c_index + 1) * self.step_size >= self.img_shape[1]:
                     tmp = Point(min((c_index) * self.step_size, self.img_shape[1] - 1),
                                 min((r_index) * self.step_size, self.img_shape[0] - 1))
                     patch.clear()
-
+                    cleared = True
 
                     if len(self.patch_array) == r_index + 1 and len(row) == c_index + 1:
                         tmp = Point(self.img_shape[1] - 1, self.img_shape[0] - 1)
@@ -57,15 +61,29 @@ class PatchArray:
                         tmp = Point(c_index * self.step_size, self.img_shape[0] - 1)
                     patch.append(tmp)
 
+                xl = c_index * self.step_size
+                xr = (c_index + 1) * self.step_size
+                yu = self.img_shape[0] - (r_index * self.step_size)
+                yb = self.img_shape[0] - ((r_index + 1) * self.step_size)
+                for line in self.lines:
+                    if (yb <= line.get_y(xl) <= yu) or (yb <= line.get_y(xr) <= yu) or (xl <= line.get_x(yb) <= xr) or (
+                            xl <= line.get_x(yu) <= xr):
+                        if not cleared:
+                            patch.clear()
+                            cleared = True
+                        r = random.randrange(self.step_size)
+                        x = (c_index * self.step_size) + r
+                        y = line.get_y(x)
+                        patch.append(Point(x, int(self.img_shape[0] - y), line_eq=line))
 
-                #else if not empty, pick random and remove others
-                elif length > 0:
+                # else if not empty, pick random and remove others
+                if length > 0 and not cleared:
                     r = random.randrange(length)
                     tmp = patch[r]
                     patch.clear()
                     patch.append(tmp)
-                #else create random
-                else:
+                # else create random
+                elif not cleared:
                     x = random.randrange(c_index * self.step_size,
                                          min(c_index * self.step_size + self.step_size, self.img_shape[1]))
                     y = random.randrange(r_index * self.step_size,

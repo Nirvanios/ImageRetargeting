@@ -14,7 +14,7 @@ class Saliency:
         self.img = np.copy(img)
         self.auto = auto
         self.mouse_down = False
-        self.circle_radius = 3
+        self.circle_radius = 15
         self.compute_saliency()
 
     def compute_saliency(self):
@@ -26,8 +26,9 @@ class Saliency:
                 if key == self.__MINUS_KEY:
                     self.circle_radius = max(1, self.circle_radius - 1)
                 elif key == self.__PLUS_KEY:
-                    self.circle_radius = min(25, self.circle_radius + 1)
+                    self.circle_radius = min(40, self.circle_radius + 1)
                 key = cv2.waitKey()
+            cv2.destroyWindow("Select important object")
         else:
             s = cv2.saliency.StaticSaliencyFineGrained_create()
             (result, saliency_map) = s.computeSaliency(self.img)
@@ -37,7 +38,10 @@ class Saliency:
             self.saliency_map = cv2.morphologyEx(saliency_map, cv2.MORPH_OPEN, kernel)
 
     def get_saliency_map(self) -> np.ndarray:
-        return self.saliency_map[:,:,2]
+        if self.auto:
+            return self.saliency_map
+        else:
+            return self.saliency_map[:, :, 2]
 
     @staticmethod
     def __select_region(event: int, x: int, y: int, flags: int, param: Any):

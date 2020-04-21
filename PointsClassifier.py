@@ -1,10 +1,11 @@
 import cv2
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 
 import Utils
 from SaliencyObject import SaliencyObject, ObjectParameter
 from Point import PointType
+from Point import Point
 
 
 class PointsClassifier:
@@ -18,19 +19,19 @@ class PointsClassifier:
         """
         self.src_shape = saliency_map.shape
         self.target_shape = target_shape
-        self.corner_points = []
-        self.border_points = []
-        self.saliency_objects = []
-        self.edge_points = []
-        self.other_points = []
-        self.all_points = []
+        self.corner_points: List[Point] = []
+        self.border_points: List[Point] = []
+        self.saliency_objects: List[SaliencyObject] = []
+        self.edge_points: List[Point] = []
+        self.other_points: List[Point] = []
+        self.all_points: List[Point] = []
 
         self.border_indices = [[] for _ in range(4)]
 
         self.__save_all_points(points)
         self.__find_border_corner_points(points)
         self.__find_saliency_objects(points, simplices, saliency_map)
-        self.__find_other_points(points)
+        self.__find_other_lines_points(points)
         self.__compute_scales()
 
     def __find_border_corner_points(self, points: np.ndarray) -> None:
@@ -128,13 +129,15 @@ class PointsClassifier:
                 point.object_parameters.append(ObjectParameter(index, r, theta, scale, center_point))
                 saliency_object.point_relative_pos.append(Utils.pol2cart(r * saliency_object.scale, theta))
 
-    def __find_other_points(self, points: np.ndarray) -> None:
+    def __find_other_lines_points(self, points: np.ndarray) -> None:
         """
         Fill until now non-classified points.
         :param points: Input points
         :return: None
         """
         for point in points:
+            if point.line_eq is not None:
+                self.edge_points.append(point)
             flag = False
             if (point in self.corner_points) or (point in self.border_points):
                 continue

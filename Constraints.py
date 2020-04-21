@@ -100,6 +100,7 @@ def length_constraint_energy_fun(points: np.ndarray, edges: np.ndarray, point_sc
     l_ij2 = np.power(l_ij, 2)
     sum = np.sum(np.power((weights * np.power(norms, 2)) - l_ij2, 2) / l_ij2)
 
+    points = points.reshape(len(points) * 2)
     return sum
 
 
@@ -110,7 +111,8 @@ def length_constraint_energy_jac(points: np.ndarray, edges: np.ndarray, point_sc
     j_points = jacob_matrix.reshape((-1, *points.shape)) + points
 
     current_orientations = Utils.compute_orientations_jacob(j_points, edge_neighbour_indices)
-    orientations = current_orientations * np.broadcast_to(original_orientations, (j_points.shape[0], *original_orientations.shape))
+    orientations = current_orientations * np.broadcast_to(original_orientations,
+                                                          (j_points.shape[0], *original_orientations.shape))
     weights = np.sign(orientations.min(axis=2))
 
     lengths = abs(j_points[:, edges][:, :, 0] - j_points[:, edges][:, :, 1])
@@ -122,8 +124,46 @@ def length_constraint_energy_jac(points: np.ndarray, edges: np.ndarray, point_sc
     l_ij2 = np.power(l_ij, 2)
     sum = np.sum(np.power((weights * np.power(norms, 2)) - l_ij2, 2) / l_ij2, axis=1)
 
+    points = points.reshape(len(points) * 2)
     return sum
 
 
-def structure_constraint_energy_fun() -> int:
-    return 0
+def structure_constraint_energy_fun(points: np.ndarray, line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
+                                    line_point_indices: np.ndarray, src_shape: np.ndarray) -> float:
+    points = points.reshape((-1, 2))
+
+    xy = points[line_point_indices]
+    ab = line_coefficients[coefficient_indices]
+
+    points = points.reshape(len(points) * 2)
+    return np.power(src_shape[0] - (xy[:, 1] - (xy * ab)[:, 0] + ab[:, 1]), 2).sum()
+
+def structure_constraint_energy_jac(points: np.ndarray, line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
+                                    line_point_indices: np.ndarray, src_shape: np.ndarray, jacob_matrix: np.ndarray) -> float:
+    points = points.reshape((-1, 2))
+    j_points = jacob_matrix.reshape((-1, *points.shape)) + points
+
+    xy = j_points[:, line_point_indices]
+    ab = line_coefficients[coefficient_indices]
+
+    points = points.reshape(len(points) * 2)
+    return np.power(src_shape[0] - (xy[:, :, 1] - (xy * ab)[:, :, 0] + ab[:, 1]), 2).sum(axis=1)
+
+
+def length_structure_energy_wraper(points: np.ndarray, edges: np.ndarray, point_scales: np.ndarray,
+                                   original_orientations: np.ndarray, edge_neighbour_indices: np.ndarray,
+                                   line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
+                                   line_point_indices: np.ndarray, src_shape: np.ndarray) -> float:
+    structure_coefficient = 0.5
+    return length_constraint_energy_fun(points, edges, point_scales, original_orientations,
+                                        edge_neighbour_indices) + structure_coefficient * structure_constraint_energy_fun(
+        points, line_coefficients, coefficient_indices, line_point_indices, src_shape)
+
+def length_structure_energy_wraper_jac(points: np.ndarray, edges: np.ndarray, point_scales: np.ndarray,
+                                   original_orientations: np.ndarray, edge_neighbour_indices: np.ndarray,
+                                   line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
+                                   line_point_indices: np.ndarray, src_shape: np.ndarray, jacob_matrix: np.ndarray) -> np.ndarray:
+    structure_coefficient = 0.5
+    return length_constraint_energy_jac(points, edges, point_scales, original_orientations,
+                                        edge_neighbour_indices, jacob_matrix) + structure_coefficient * structure_constraint_energy_jac(
+        points, line_coefficients, coefficient_indices, line_point_indices, src_shape, jacob_matrix)
