@@ -84,8 +84,8 @@ def main(args):
     mesh_img = src_img.copy()
     Drawing.drawPoints(mesh_img, points)
     Drawing.drawMesh(mesh_img, points, simplices)
-    cv2.imshow("mesh", mesh_img)
-    cv2.waitKey()
+    # cv2.imshow("mesh", mesh_img)
+    # cv2.waitKey()
 
     # estimation is naive resize
     estimation = points_list * ((args_shape / src_shape)[::-1])
@@ -114,7 +114,7 @@ def main(args):
                                                  obj_count)
         return j / np.sqrt(np.finfo(float).eps)
 
-    def length_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray, original_orientations: np.ndarray,
+    def length_structure_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray, original_orientations: np.ndarray,
                         mesh_edge_neighbour_indices: np.ndarray, line_coefficients: np.ndarray,
                         coefficient_indices: np.ndarray, line_point_indices: np.ndarray, src_shape: np.ndarray):
         j = Constraints.length_structure_energy_wraper_jac(points, edges, scales, original_orientations,
@@ -125,10 +125,18 @@ def main(args):
                                                         coefficient_indices, line_point_indices, src_shape)
         return j / np.sqrt(np.finfo(float).eps)
 
+    def length_jacobian(points: np.ndarray, edges: np.ndarray, scales: np.ndarray, original_orientations: np.ndarray,
+                        mesh_edge_neighbour_indices: np.ndarray):
+        j = Constraints.length_constraint_energy_jac(points, edges, scales, original_orientations,
+                                                           mesh_edge_neighbour_indices, epsilon_matrix)
+        j -= Constraints.length_constraint_energy_fun(points, edges, scales, original_orientations,
+                                                        mesh_edge_neighbour_indices)
+        return j / np.sqrt(np.finfo(float).eps)
+
     def counter_callback(xk: np.ndarray) -> bool:
         global counter
         counter += 1
-        print("{}%".format(round((counter*100)/2000, 1)))
+        print("{}%".format(round((counter*100)/args.iterations, 1)))
         return False
 
     # Create constraints functions
@@ -142,14 +150,19 @@ def main(args):
     constraints.append(c2)
 
     # Minimization options
-    options = {'disp': True, 'maxiter': 2000}
+    options = {'disp': True, 'maxiter': args.iterations}
     minimize = True
     ttt = 1
     while minimize:
-        res = scipy.optimize.minimize(Constraints.length_structure_energy_wraper, estimation, args=(
-            attributes.edges, attributes.point_scales, original_orientations, mesh_edge_neighbour_indices,
-            line_coefficients, coefficient_indices, line_point_indices, np.array(src_shape)), method='SLSQP', options=options,
-                                      constraints=constraints, jac=length_jacobian, callback=counter_callback)
+        if(line_point_indices.shape[0] > 0):
+            res = scipy.optimize.minimize(Constraints.length_structure_energy_wraper, estimation, args=(
+                attributes.edges, attributes.point_scales, original_orientations, mesh_edge_neighbour_indices,
+                line_coefficients, coefficient_indices, line_point_indices, np.array(src_shape)), method='SLSQP', options=options,
+                                          constraints=constraints, jac=length_structure_jacobian, callback=counter_callback)
+        else:
+            res = scipy.optimize.minimize(Constraints.length_constraint_energy_fun, estimation, args=(
+                attributes.edges, attributes.point_scales, original_orientations, mesh_edge_neighbour_indices), method='SLSQP', options=options,
+                                          constraints=constraints, jac=length_jacobian, callback=counter_callback)
 
         # DEBUG
         ret_b = Constraints.boundary_constraint_fun(res.x, attributes.target_shape, attributes.border_points_indices)
@@ -179,6 +192,7 @@ def main(args):
 
         cv2.imshow("src", src_img)
         cv2.imshow("mapped", warped_image)
+        cv2.imwrite("mapped__.jpg", warped_image)
         cv2.imshow("mesh", mesh_img)
         # # # cv2.imshow("saliency", saliency_map)
         #
@@ -201,6 +215,13 @@ parser.add_argument('-in',
                     help='Input image',
                     required=True,
                     type=str)
+parser.add_argument('-iter',
+                    action='store',
+                    dest='iterations',
+                    help='Input image',
+                    default=2000,
+                    required=False,
+                    type=int)
 parser.add_argument('-W',
                     action='store',
                     dest='target_width',

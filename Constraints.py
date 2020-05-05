@@ -138,8 +138,10 @@ def structure_constraint_energy_fun(points: np.ndarray, line_coefficients: np.nd
     points = points.reshape(len(points) * 2)
     return np.power(src_shape[0] - (xy[:, 1] - (xy * ab)[:, 0] + ab[:, 1]), 2).sum()
 
+
 def structure_constraint_energy_jac(points: np.ndarray, line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
-                                    line_point_indices: np.ndarray, src_shape: np.ndarray, jacob_matrix: np.ndarray) -> float:
+                                    line_point_indices: np.ndarray, src_shape: np.ndarray,
+                                    jacob_matrix: np.ndarray) -> float:
     points = points.reshape((-1, 2))
     j_points = jacob_matrix.reshape((-1, *points.shape)) + points
 
@@ -159,11 +161,14 @@ def length_structure_energy_wraper(points: np.ndarray, edges: np.ndarray, point_
                                         edge_neighbour_indices) + structure_coefficient * structure_constraint_energy_fun(
         points, line_coefficients, coefficient_indices, line_point_indices, src_shape)
 
+
 def length_structure_energy_wraper_jac(points: np.ndarray, edges: np.ndarray, point_scales: np.ndarray,
-                                   original_orientations: np.ndarray, edge_neighbour_indices: np.ndarray,
-                                   line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
-                                   line_point_indices: np.ndarray, src_shape: np.ndarray, jacob_matrix: np.ndarray) -> np.ndarray:
+                                       original_orientations: np.ndarray, edge_neighbour_indices: np.ndarray,
+                                       line_coefficients: np.ndarray, coefficient_indices: np.ndarray,
+                                       line_point_indices: np.ndarray, src_shape: np.ndarray,
+                                       jacob_matrix: np.ndarray) -> np.ndarray:
     structure_coefficient = 0.5
     return length_constraint_energy_jac(points, edges, point_scales, original_orientations,
-                                        edge_neighbour_indices, jacob_matrix) + structure_coefficient * structure_constraint_energy_jac(
+                                        edge_neighbour_indices,
+                                        jacob_matrix) + structure_coefficient * structure_constraint_energy_jac(
         points, line_coefficients, coefficient_indices, line_point_indices, src_shape, jacob_matrix)

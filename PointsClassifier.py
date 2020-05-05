@@ -114,8 +114,10 @@ class PointsClassifier:
         x_length = Utils.lines_length(np.array(x_lines))
         y_length = Utils.lines_length(np.array(y_lines))
 
-        x_scale = min((self.target_shape[1] - 1) / x_length, 1.0)
-        y_scale = min((self.target_shape[0] - 1) / y_length, 1.0)
+        eps = np.finfo(float).eps if x_length == 0 else 0
+        x_scale = min((self.target_shape[1] - 1) / (x_length + eps), 1.0)
+        eps = np.finfo(float).eps if x_length == 0 else 0
+        y_scale = min((self.target_shape[0] - 1) / (y_length + eps), 1.0)
 
         scale = min(x_scale, y_scale)
 
